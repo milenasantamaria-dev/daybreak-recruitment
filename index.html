@@ -338,7 +338,18 @@ const APPS_URL = "https://script.google.com/macros/s/AKfycbx7MLwdWKs3vnM6eNag1Wr
 function chkRole(){const s=document.getElementById('roleSel'),w=document.getElementById('roleOther'),i=document.getElementById('roleOtherVal');w.style.display=s.value==='Other'?'block':'none';i.required=s.value==='Other';}
 function chkEng(el){const v=el.querySelector('input').value;document.getElementById('stbox').style.display=v==='shortterm'?'block':'none';}
 function togPill(el,g){el.classList.toggle('active');if(g==='loc'&&el.id==='locOtherPill'){document.getElementById('locOtherWrap').style.display=el.classList.contains('active')?'block':'none';}}
-function chkPass(){if(document.getElementById('dp').value==='daybreak2026'){document.getElementById('dash').style.display='block';document.getElementById('dash').scrollIntoView({behavior:'smooth'});updDash();}else{alert('Incorrect access code.');}}
+function chkPass(){
+  if(document.getElementById('dp').value==='daybreak2026'){
+    document.getElementById('dash').style.display='block';
+    document.getElementById('dash').scrollIntoView({behavior:'smooth'});
+    updDash();
+    // Close the details element after successful login
+    const details = document.querySelector('details');
+    if(details) details.open = false;
+  } else {
+    alert('Incorrect access code. Try: daybreak2026');
+  }
+}
 function clearData(){if(confirm('Clear all data? Cannot be undone.')){localStorage.removeItem('db_reqs');reqs=[];updDash();}}
 function bar(l,c,t,col){const p=t>0?Math.round(c/t*100):0;return`<div style="margin-bottom:8px;"><div style="display:flex;justify-content:space-between;margin-bottom:3px;"><span style="color:#1C1C1C;font-size:11px;font-weight:500;">${l}</span><span style="color:#6B7280;font-size:10px;">${c} (${p}%)</span></div><div style="background:#F3F4F6;border-radius:3px;height:6px;"><div style="background:${col};height:100%;width:${p}%;border-radius:3px;"></div></div></div>`;}
 function grp(arr,k){return arr.reduce((a,r)=>{const v=r[k]||'Unknown';a[v]=(a[v]||0)+1;return a;},{});}
@@ -370,7 +381,7 @@ document.getElementById('rf').addEventListener('submit',async function(e){
   const btn=document.getElementById('subBtn');
   btn.textContent='Submitting...';btn.disabled=true;
   const steps=[...document.querySelectorAll('input[name="hs"]:checked')].map(i=>i.value);
-  const panel=[...document.getElementById('intPanel').selectedOptions].map(o=>o.value);
+  const panel=[...document.querySelectorAll('input[name="panel"]:checked')].map(i=>i.value);
   const locs=[...document.querySelectorAll('#locPills .pill.active')].map(p=>p.textContent.trim());
   if(document.getElementById('locOtherWrap').style.display!=='none'){const ov=document.getElementById('locOtherVal').value;if(ov)locs.push(ov);}
   const fd={
@@ -394,7 +405,23 @@ document.getElementById('rf').addEventListener('submit',async function(e){
     urgency:document.getElementById('urgSel').value,
   };
   save(fd);
-  if(APPS_URL!=="YOUR_GOOGLE_APPS_SCRIPT_URL_HERE"){try{await fetch(APPS_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify(fd)});}catch(err){}}
+  // Submit to Google Sheets with timeout so it never freezes
+  if(APPS_URL!=="YOUR_GOOGLE_APPS_SCRIPT_URL_HERE"){
+    try{
+      const controller = new AbortController();
+      const timeout = setTimeout(()=>controller.abort(), 5000);
+      await fetch(APPS_URL,{
+        method:'POST',
+        mode:'no-cors',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(fd),
+        signal:controller.signal
+      });
+      clearTimeout(timeout);
+    }catch(err){
+      console.log('Sheets sync:', err.message);
+    }
+  }
   document.getElementById('rf').style.display='none';
   document.getElementById('successScreen').style.display='block';
   window.scrollTo({top:0,behavior:'smooth'});
