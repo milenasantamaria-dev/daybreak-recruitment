@@ -180,6 +180,12 @@ textarea{resize:vertical;min-height:78px;line-height:1.5}
         <input type="number" id="qty" min="1" max="20" value="1" required>
       </div>
     </div>
+    <div class="field">
+      <label>Department <span class="req">*</span></label>
+      <select required id="deptSel" onchange="suggestPanel(this.value)">
+        <option value="">Loading...</option>
+      </select>
+    </div>
     <div class="fr">
       <div class="field">
         <label>Seniority Level <span class="req">*</span></label>
@@ -325,7 +331,7 @@ textarea{resize:vertical;min-height:78px;line-height:1.5}
   <div style="background:linear-gradient(135deg,#1C1C1C 0%,#2D3748 100%);padding:24px 20px 18px;">
     <div style="max-width:880px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
       <div><div style="color:#fff;font-size:18px;font-weight:700;">📊 Recruitment Dashboard</div><div style="color:rgba(255,255,255,.45);font-size:11px;margin-top:2px;">People Team · Internal View Only</div></div>
-      <button onclick="clearData()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.6);padding:5px 12px;border-radius:7px;font-family:'DM Sans',sans-serif;font-size:11px;cursor:pointer;">🗑 Clear Data</button>
+      <button onclick="loadRequests()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.6);padding:5px 12px;border-radius:7px;font-family:'DM Sans',sans-serif;font-size:11px;cursor:pointer;">🔄 Refresh</button>
     </div>
   </div>
   <div style="max-width:880px;margin:0 auto;padding:18px 16px 56px;">
@@ -358,8 +364,9 @@ textarea{resize:vertical;min-height:78px;line-height:1.5}
           <th style="text-align:left;padding:6px 8px;color:#6B7280;font-weight:600;">Budget</th>
           <th style="text-align:left;padding:6px 8px;color:#6B7280;font-weight:600;">Urgency</th>
           <th style="text-align:center;padding:6px 8px;color:#6B7280;font-weight:600;">Qty</th>
+          <th style="text-align:left;padding:6px 8px;color:#6B7280;font-weight:600;">Status</th>
         </tr></thead>
-        <tbody id="dtbody"><tr><td colspan="9" style="text-align:center;padding:18px;color:#6B7280;">No requests yet.</td></tr></tbody>
+        <tbody id="dtbody"><tr><td colspan="10" style="text-align:center;padding:18px;color:#6B7280;">No requests yet.</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -483,6 +490,7 @@ function escapeHtml(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'
 // a CORS preflight that Apps Script web apps don't handle, which is what breaks this fetch.
 async function loadDirectory(){
   const hmgrSel=document.getElementById('hmgr');
+  const deptSel=document.getElementById('deptSel');
   const panelWrap=document.getElementById('panelCheckboxes');
   try{
     const res=await fetch(APPS_URL+'?action=breakers');
@@ -491,19 +499,35 @@ async function loadDirectory(){
 
     const breakers=data.breakers.slice().sort((a,b)=>a.name.localeCompare(b.name));
 
+    const hiringManagers=breakers.filter(p=>p.isPeopleLeader);
     hmgrSel.innerHTML='<option value="">Select hiring manager</option>'+
-      breakers.map(p=>`<option value="${escapeHtml(p.display)}">${escapeHtml(p.display)}</option>`).join('');
+      hiringManagers.map(p=>`<option value="${escapeHtml(p.display)}">${escapeHtml(p.display)}</option>`).join('');
+
+    const departments=[...new Set(breakers.map(p=>p.department).filter(Boolean))].sort();
+    deptSel.innerHTML='<option value="">Select department</option>'+
+      departments.map(d=>`<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('');
 
     panelWrap.innerHTML=breakers.map(p=>`
       <label style="display:flex;align-items:center;gap:8px;padding:5px 4px;cursor:pointer;border-radius:6px;transition:background .12s;" onmouseover="this.style.background='var(--green-light)'" onmouseout="this.style.background='transparent'">
-        <input type="checkbox" name="panel" value="${escapeHtml(p.display)}" style="accent-color:var(--green);width:14px;height:14px;flex-shrink:0;">
+        <input type="checkbox" name="panel" value="${escapeHtml(p.display)}" data-department="${escapeHtml(p.department)}" style="accent-color:var(--green);width:14px;height:14px;flex-shrink:0;">
         <span style="font-size:12px;color:var(--ink);">${escapeHtml(p.display)}</span>
       </label>`).join('');
   }catch(err){
     console.error('Failed to load breakers directory:',err);
     hmgrSel.innerHTML='<option value="">Could not load — refresh the page</option>';
+    deptSel.innerHTML='<option value="">Could not load — refresh the page</option>';
     panelWrap.innerHTML='<div style="text-align:center;color:#B91C1C;font-size:12px;padding:20px;">Could not load the list. Refresh the page to try again.</div>';
   }
+}
+
+// Pre-checks interview panel members from the selected department as a starting suggestion.
+// Additive only — never unchecks anything, so switching departments never removes a
+// manually-picked reviewer from a different team.
+function suggestPanel(department){
+  if(!department) return;
+  document.querySelectorAll('input[name="panel"]').forEach(cb=>{
+    if(cb.dataset.department===department) cb.checked=true;
+  });
 }
 
 window.addEventListener('load', function(){
@@ -526,7 +550,7 @@ function chkPass(){
   if(document.getElementById('dp').value==='daybreak2026'){
     document.getElementById('dash').style.display='block';
     document.getElementById('dash').scrollIntoView({behavior:'smooth'});
-    updDash();
+    loadRequests();
     // Close the details element after successful login
     const details = document.querySelector('details');
     if(details) details.open = false;
@@ -534,16 +558,45 @@ function chkPass(){
     alert('Incorrect access code. Try: daybreak2026');
   }
 }
-function clearData(){if(confirm('Clear all data? Cannot be undone.')){localStorage.removeItem('db_reqs');reqs=[];updDash();}}
 function bar(l,c,t,col){const p=t>0?Math.round(c/t*100):0;return`<div style="margin-bottom:8px;"><div style="display:flex;justify-content:space-between;margin-bottom:3px;"><span style="color:#1C1C1C;font-size:11px;font-weight:500;">${l}</span><span style="color:#6B7280;font-size:10px;">${c} (${p}%)</span></div><div style="background:#F3F4F6;border-radius:3px;height:6px;"><div style="background:${col};height:100%;width:${p}%;border-radius:3px;"></div></div></div>`;}
 function grp(arr,k){return arr.reduce((a,r)=>{const v=r[k]||'Unknown';a[v]=(a[v]||0)+1;return a;},{});}
-let reqs=JSON.parse(localStorage.getItem('db_reqs')||'[]');
-function save(d){d.ts=new Date().toISOString();reqs.push(d);localStorage.setItem('db_reqs',JSON.stringify(reqs));}
+
+const STATUS_OPTIONS=["Requested","Approved","Sourcing","Interviewing","Offer","Hired","On Hold","Cancelled"];
+let allRequests=[];
+
+// Reads live from the Responses sheet — every manager's submissions, not just this browser's.
+async function loadRequests(){
+  const tbody=document.getElementById('dtbody');
+  try{
+    const res=await fetch(APPS_URL+'?action=requests');
+    const data=await res.json();
+    if(!data || data.success===false) throw new Error(data && data.error || 'Unknown error');
+    allRequests=data.requests;
+    updDash();
+  }catch(err){
+    console.error('Failed to load requests:',err);
+    tbody.innerHTML='<tr><td colspan="10" style="text-align:center;padding:18px;color:#B91C1C;">Could not load requests. Try refreshing.</td></tr>';
+  }
+}
+
+async function changeStatus(rowIndex,status){
+  try{
+    const res=await fetch(APPS_URL,{method:'POST',body:JSON.stringify({action:'updateStatus',email:currentUser?currentUser.email:'',rowIndex:rowIndex,status:status})});
+    const data=await res.json();
+    if(!data.success){ alert(data.error||'Could not update status.'); return; }
+    const r=allRequests.find(x=>x.rowIndex===rowIndex);
+    if(r) r.status=status;
+  }catch(err){
+    alert('Connection error. Please try again.');
+  }
+}
+
 function updDash(){
+  const reqs=allRequests;
   const now=new Date();
-  const m=reqs.filter(r=>{const d=new Date(r.ts);return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();});
-  const q=reqs.filter(r=>{const d=new Date(r.ts);return Math.floor(d.getMonth()/3)===Math.floor(now.getMonth()/3)&&d.getFullYear()===now.getFullYear();});
-  const y=reqs.filter(r=>new Date(r.ts).getFullYear()===now.getFullYear());
+  const m=reqs.filter(r=>{const d=new Date(r.timestamp);return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();});
+  const q=reqs.filter(r=>{const d=new Date(r.timestamp);return Math.floor(d.getMonth()/3)===Math.floor(now.getMonth()/3)&&d.getFullYear()===now.getFullYear();});
+  const y=reqs.filter(r=>new Date(r.timestamp).getFullYear()===now.getFullYear());
   document.getElementById('k1').textContent=reqs.length;
   document.getElementById('k2').textContent=m.length;
   document.getElementById('k3').textContent=q.length;
@@ -553,11 +606,19 @@ function updDash(){
   document.getElementById('k7').textContent=reqs.filter(r=>r.posType==='backfill').length;
   document.getElementById('k8').textContent=reqs.filter(r=>r.posType==='formalized').length;
   const cols=['#2D9B4E','#3B82F6','#8B5CF6','#F59E0B','#EF4444','#06B6D4','#EC4899','#84CC16'];
-  [['dc1','dept'],['dc2','seniority'],['dc3','contract'],['dc4','location']].forEach(([id,k])=>{
+  [['dc1','department'],['dc2','seniority'],['dc3','contract'],['dc4','location']].forEach(([id,k])=>{
     const g=grp(reqs,k);
-    if(Object.keys(g).length>0)document.getElementById(id).innerHTML=Object.entries(g).sort((a,b)=>b[1]-a[1]).map(([kk,v],i)=>bar(kk,v,reqs.length,cols[i%cols.length])).join('');
+    document.getElementById(id).innerHTML = Object.keys(g).length>0
+      ? Object.entries(g).sort((a,b)=>b[1]-a[1]).map(([kk,v],i)=>bar(kk,v,reqs.length,cols[i%cols.length])).join('')
+      : 'No data yet.';
   });
-  if(reqs.length>0){document.getElementById('dtbody').innerHTML=reqs.slice().reverse().slice(0,20).map(r=>{const u=r.urgency==='Urgent';return`<tr style="border-bottom:1px solid #F3F4F6;background:${u?'#FEF9C3':'transparent'};"><td style="padding:7px 8px;color:#6B7280;white-space:nowrap;">${new Date(r.ts).toLocaleDateString()}</td><td style="padding:7px 8px;font-weight:600;color:#1C1C1C;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.role||'—'}</td><td style="padding:7px 8px;">${r.dept||'—'}</td><td style="padding:7px 8px;">${r.posType==='new'?'🆕':r.posType==='backfill'?'🔄':'🏗️'}</td><td style="padding:7px 8px;">${r.location||'—'}</td><td style="padding:7px 8px;">${r.contract||'—'}</td><td style="padding:7px 8px;">${r.budget||'—'}</td><td style="padding:7px 8px;font-weight:600;color:${u?'#D97706':'#6B7280'};">${r.urgency||'—'}</td><td style="padding:7px 8px;text-align:center;">${r.qty||1}</td></tr>`;}).join('');}
+  document.getElementById('dtbody').innerHTML = reqs.length>0
+    ? reqs.slice().reverse().slice(0,20).map(r=>{
+        const u=r.urgency==='Urgent';
+        const statusOpts=STATUS_OPTIONS.map(s=>`<option value="${s}" ${s===r.status?'selected':''}>${s}</option>`).join('');
+        return `<tr style="border-bottom:1px solid #F3F4F6;background:${u?'#FEF9C3':'transparent'};"><td style="padding:7px 8px;color:#6B7280;white-space:nowrap;">${r.timestamp?new Date(r.timestamp).toLocaleDateString():'—'}</td><td style="padding:7px 8px;font-weight:600;color:#1C1C1C;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.role||'—'}</td><td style="padding:7px 8px;">${r.department||'—'}</td><td style="padding:7px 8px;">${r.posType==='new'?'🆕':r.posType==='backfill'?'🔄':'🏗️'}</td><td style="padding:7px 8px;">${r.location||'—'}</td><td style="padding:7px 8px;">${r.contract||'—'}</td><td style="padding:7px 8px;">${r.budget||'—'}</td><td style="padding:7px 8px;font-weight:600;color:${u?'#D97706':'#6B7280'};">${r.urgency||'—'}</td><td style="padding:7px 8px;text-align:center;">${r.qty||1}</td><td style="padding:5px 6px;"><select onchange="changeStatus(${r.rowIndex},this.value)" style="font-size:11px;padding:3px 6px;border-radius:6px;border:1px solid #E5E7EB;font-family:'DM Sans',sans-serif;">${statusOpts}</select></td></tr>`;
+      }).join('')
+    : '<tr><td colspan="10" style="text-align:center;padding:18px;color:#6B7280;">No requests yet.</td></tr>';
 }
 
 document.getElementById('rf').addEventListener('submit',async function(e){
@@ -571,6 +632,7 @@ document.getElementById('rf').addEventListener('submit',async function(e){
   const fd={
     email:currentUser?currentUser.email:'',
     date:new Date().toLocaleDateString(),
+    dept:document.getElementById('deptSel').value,
     qty:document.getElementById('qty').value,
     role:document.getElementById('roleSel').value==='Other'?document.getElementById('roleOtherVal').value:document.getElementById('roleSel').value,
     posType:document.querySelector('input[name="pt"]:checked')?document.querySelector('input[name="pt"]:checked').value:'',
@@ -589,7 +651,6 @@ document.getElementById('rf').addEventListener('submit',async function(e){
     panel:panel.join(', '),
     urgency:document.getElementById('urgSel').value,
   };
-  save(fd);
   // Submit to Google Sheets with timeout so it never freezes
   if(APPS_URL!=="YOUR_GOOGLE_APPS_SCRIPT_URL_HERE"){
     try{
