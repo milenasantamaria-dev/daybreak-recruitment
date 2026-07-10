@@ -511,12 +511,14 @@ async function loadDirectory(){
     breakers.forEach(p=>{ const d=p.department||'Other'; (panelGroups[d]=panelGroups[d]||[]).push(p); });
     const panelGroupNames=Object.keys(panelGroups).sort();
     panelWrap.innerHTML=panelGroupNames.map(g=>`
-      <div style="font-size:11px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;margin-top:10px;padding-bottom:4px;border-bottom:1px solid var(--green-light);">${escapeHtml(g)}</div>
-      ${panelGroups[g].map(p=>`
-        <label style="display:flex;align-items:center;gap:8px;padding:5px 4px;cursor:pointer;border-radius:6px;transition:background .12s;" onmouseover="this.style.background='var(--green-light)'" onmouseout="this.style.background='transparent'">
-          <input type="checkbox" name="panel" value="${escapeHtml(p.display)}" data-department="${escapeHtml(p.department)}" style="accent-color:var(--green);width:14px;height:14px;flex-shrink:0;">
-          <span style="font-size:12px;color:var(--ink);">${escapeHtml(p.display)}</span>
-        </label>`).join('')}
+      <div class="panel-group" data-department="${escapeHtml(g)}" style="border-radius:8px;transition:background .3s;">
+        <div style="font-size:11px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;margin-top:10px;padding-bottom:4px;border-bottom:1px solid var(--green-light);">${escapeHtml(g)}</div>
+        ${panelGroups[g].map(p=>`
+          <label style="display:flex;align-items:center;gap:8px;padding:5px 4px;cursor:pointer;border-radius:6px;transition:background .12s;" onmouseover="this.style.background='var(--green-light)'" onmouseout="this.style.background='transparent'">
+            <input type="checkbox" name="panel" value="${escapeHtml(p.display)}" data-department="${escapeHtml(p.department)}" style="accent-color:var(--green);width:14px;height:14px;flex-shrink:0;">
+            <span style="font-size:12px;color:var(--ink);">${escapeHtml(p.display)}</span>
+          </label>`).join('')}
+      </div>
     `).join('');
   }catch(err){
     console.error('Failed to load breakers directory:',err);
@@ -526,14 +528,18 @@ async function loadDirectory(){
   }
 }
 
-// Pre-checks interview panel members from the selected department as a starting suggestion.
-// Additive only — never unchecks anything, so switching departments never removes a
-// manually-picked reviewer from a different team.
+// Highlights and scrolls to the selected department's group in the Interview Panel list as a
+// visual suggestion — it does NOT auto-check anyone. Auto-checking a whole department (can be
+// 10+ people) isn't a real interview panel; the requester picks who actually attends from the
+// highlighted group.
 function suggestPanel(department){
+  document.querySelectorAll('.panel-group').forEach(g=>{ g.style.background='transparent'; });
   if(!department) return;
-  document.querySelectorAll('input[name="panel"]').forEach(cb=>{
-    if(cb.dataset.department===department) cb.checked=true;
-  });
+  const target=document.querySelector('.panel-group[data-department="'+CSS.escape(department)+'"]');
+  if(target){
+    target.style.background='var(--green-light)';
+    target.scrollIntoView({behavior:'smooth',block:'nearest'});
+  }
 }
 
 // Suggests a lighter process for entry-level roles (skips the formal Assessment Center by
