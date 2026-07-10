@@ -189,7 +189,7 @@ textarea{resize:vertical;min-height:78px;line-height:1.5}
     <div class="fr">
       <div class="field">
         <label>Seniority Level <span class="req">*</span></label>
-        <select required id="senSel">
+        <select required id="senSel" onchange="suggestSteps(this.value)">
           <option value="">Select level</option>
           <option>Intern</option><option>Junior</option><option>Mid-level</option>
           <option>Senior</option><option>Staff / Principal</option><option>Manager</option>
@@ -289,10 +289,10 @@ textarea{resize:vertical;min-height:78px;line-height:1.5}
     <div class="field">
       <label>Hiring Process Steps <span class="req">*</span><span class="hint">— select the steps for this role</span></label>
       <div class="cg">
-        <label class="co"><input type="checkbox" name="hs" value="Step 0 - Screening"><div><div class="ol">Step 0 — Screening</div><div class="od">Initial recruiter / People screen to assess fit and interest</div></div></label>
-        <label class="co"><input type="checkbox" name="hs" value="Step 1 - Take-home Assignment"><div><div class="ol">Step 1 — Take-home Assignment</div><div class="od">Automatic email sent to candidate · Must submit back to technical panel</div></div></label>
-        <label class="co"><input type="checkbox" name="hs" value="Step 2 - Panel Presentation"><div><div class="ol">Step 2 — Panel Presentation (60 min)</div><div class="od">Candidate presents take-home · Panel: Waleed (CTO), Tim (CEO), Enterprise Services, Technical & People</div></div></label>
-        <label class="co"><input type="checkbox" name="hs" value="Step 3 - Culture Interview"><div><div class="ol">Step 3 — Culture Interview (30 min)</div><div class="od">Direct manager · Further questions · Culture fit assessment</div></div></label>
+        <label class="co"><input type="checkbox" name="hs" id="step0" value="Step 0 - Screening"><div><div class="ol">Step 0 — Screening <span class="hint">~30 min</span></div><div class="od">Initial recruiter / People screen to assess fit and interest</div></div></label>
+        <label class="co"><input type="checkbox" name="hs" id="step1" value="Step 1 - Hiring Manager Interview"><div><div class="ol">Step 1 — Hiring Manager Interview <span class="hint">~45 min</span></div><div class="od">Validates mutual interest and fit early, before the candidate invests time in an assessment</div></div></label>
+        <label class="co"><input type="checkbox" name="hs" id="step2" value="Step 2 - Assessment Center"><div><div class="ol">Step 2 — Assessment Center <span class="hint">2-5 business days</span></div><div class="od">Practical exercise tailored to the role · Evaluated by the technical panel</div></div></label>
+        <label class="co"><input type="checkbox" name="hs" id="step3" value="Step 3 - Final Panel & Culture Interview"><div><div class="ol">Step 3 — Final Panel & Culture Interview <span class="hint">60-90 min</span></div><div class="od">One combined session with the interview panel selected below and the direct manager</div></div></label>
       </div>
     </div>
     <div class="field">
@@ -534,6 +534,19 @@ function suggestPanel(department){
   document.querySelectorAll('input[name="panel"]').forEach(cb=>{
     if(cb.dataset.department===department) cb.checked=true;
   });
+}
+
+// Suggests a lighter process for entry-level roles (skips the formal Assessment Center by
+// default) and the full 4-stage process for Mid-level and up.
+// Additive only, same as suggestPanel — never unchecks a step the requester already picked.
+function suggestSteps(seniority){
+  if(!seniority) return;
+  const entryTiers=['Intern','Junior'];
+  const isEntry=entryTiers.indexOf(seniority)!==-1;
+  document.getElementById('step0').checked=true;
+  document.getElementById('step1').checked=true;
+  if(!isEntry) document.getElementById('step2').checked=true;
+  document.getElementById('step3').checked=true;
 }
 
 window.addEventListener('load', function(){
