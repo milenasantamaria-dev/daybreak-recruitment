@@ -531,17 +531,16 @@ async function loadDirectory(){
   }
 }
 
-// Highlights and scrolls to the selected department's group in the Interview Panel list as a
-// visual suggestion — it does NOT auto-check anyone. Auto-checking a whole department (can be
-// 10+ people) isn't a real interview panel; the requester picks who actually attends from the
-// highlighted group.
+// Highlights the selected department's group in the Interview Panel list as a visual
+// suggestion — it does NOT auto-check anyone, and does NOT jump the page there (that forced
+// the requester to scroll back up to keep filling out the rest of the form). It shows up
+// already highlighted once they reach that section naturally.
 function suggestPanel(department){
   document.querySelectorAll('.panel-group').forEach(g=>{ g.style.background='transparent'; });
   if(!department) return;
   const target=document.querySelector('.panel-group[data-department="'+CSS.escape(department)+'"]');
   if(target){
     target.style.background='var(--green-light)';
-    target.scrollIntoView({behavior:'smooth',block:'nearest'});
   }
 }
 
