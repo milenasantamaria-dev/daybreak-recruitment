@@ -507,11 +507,17 @@ async function loadDirectory(){
     deptSel.innerHTML='<option value="">Select department</option>'+
       departments.map(d=>`<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('');
 
-    panelWrap.innerHTML=breakers.map(p=>`
-      <label style="display:flex;align-items:center;gap:8px;padding:5px 4px;cursor:pointer;border-radius:6px;transition:background .12s;" onmouseover="this.style.background='var(--green-light)'" onmouseout="this.style.background='transparent'">
-        <input type="checkbox" name="panel" value="${escapeHtml(p.display)}" data-department="${escapeHtml(p.department)}" style="accent-color:var(--green);width:14px;height:14px;flex-shrink:0;">
-        <span style="font-size:12px;color:var(--ink);">${escapeHtml(p.display)}</span>
-      </label>`).join('');
+    const panelGroups={};
+    breakers.forEach(p=>{ const d=p.department||'Other'; (panelGroups[d]=panelGroups[d]||[]).push(p); });
+    const panelGroupNames=Object.keys(panelGroups).sort();
+    panelWrap.innerHTML=panelGroupNames.map(g=>`
+      <div style="font-size:11px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;margin-top:10px;padding-bottom:4px;border-bottom:1px solid var(--green-light);">${escapeHtml(g)}</div>
+      ${panelGroups[g].map(p=>`
+        <label style="display:flex;align-items:center;gap:8px;padding:5px 4px;cursor:pointer;border-radius:6px;transition:background .12s;" onmouseover="this.style.background='var(--green-light)'" onmouseout="this.style.background='transparent'">
+          <input type="checkbox" name="panel" value="${escapeHtml(p.display)}" data-department="${escapeHtml(p.department)}" style="accent-color:var(--green);width:14px;height:14px;flex-shrink:0;">
+          <span style="font-size:12px;color:var(--ink);">${escapeHtml(p.display)}</span>
+        </label>`).join('')}
+    `).join('');
   }catch(err){
     console.error('Failed to load breakers directory:',err);
     hmgrSel.innerHTML='<option value="">Could not load — refresh the page</option>';
